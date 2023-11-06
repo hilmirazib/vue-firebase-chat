@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Vue School Chat Room</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+    />
+    <!-- Include the Firebase SDK -->
+  </head>
+  <body>
+    <div id="chat" class="container">
+      <h1>Vue School Chat Room</h1>
+      <!-- Messages -->
+      <div v-for="message in messages" class="card">
+        <div class="card-body">
+          <!-- nickname -->
+          <h6 class="card-subtitle mb-2 text-muted">{{ message.nickname }}</h6>
+          <!-- content -->
+          <p v-if="message !== editMessageText" class="card-text">
+            {{ message.text }}
+          </p>
+          <textarea
+            v-else
+            v-model="messageText"
+            class="form-control"
+          ></textarea>
+          <button @click="editMessage(message)" class="btn btn-primary">
+            Edit
+          </button>
+
+          <button @click="deleteMessage(message.id)" class="btn btn-danger">
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <hr />
+      <!-- New Message -->
+      <form v-if="!editMessageText" @submit.prevent="storeMessage">
+        <div class="form-group">
+          <label>Message:</label>
+          <textarea v-model="messageText" class="form-control"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Nickname:</label>
+          <input v-model="nickname" class="form-control" />
+        </div>
+        <button class="btn btn-primary">Send</button>
+      </form>
+    </div>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js";
+      import {
+        getDatabase,
+        ref,
+        push,
+        onChildAdded,
+        onChildRemoved,
+        remove,
+        set,
+      } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-database.js";
+
+      // Your Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyCFzev85O2MUsqFmT0dDw4R4C_Fi-pGH_A",
+        authDomain: "vue-realtime-databse.firebaseapp.com",
+        databaseURL:
+          "https://vue-realtime-databse-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "vue-realtime-databse",
+        storageBucket: "vue-realtime-databse.appspot.com",
+        messagingSenderId: "370848351952",
+        appId: "1:370848351952:web:584835ec7827bf55c200d5",
+        measurementId: "G-8MGSBDFD2F",
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+
+      // Get a reference to the database
+      const database = getDatabase(app);
+
+      // Define a reference to the "messages" location in your database
+      const messagesRef = ref(database, "messages");
+
+      new Vue({
+        el: "#chat",
+
+        data: {
+          messages: [], // Initialize messages as an empty array
+          messageText: "",
+          nickname: "hoothilmi",
+          editMessageText: null,
+        },
+
+        methods: {
+          storeMessage() {
+            // When you add a new message, it will trigger the "child_added" event
+            push(messagesRef, {
+              text: this.messageText,
+              nickname: this.nickname,
+            });
+            this.messageText = "";
+          },
+          deleteMessage(messageId) {
+            const messageRef = ref(database, `messages/${messageId}`);
+            remove(messageRef)
+              .then(() => {
+                const index = this.messages.findIndex(
+                  (message) => message.id === messageId
+                );
+                if (index !== -1) {
+                  this.messages.splice(index, 1);
+                }
+              })
+              .catch((error) => {
+                console.error("Gagal menghapus pesan:", error);
+              });
+          },
+          editMessage(message) {
+            this.editMessageText = message;
+            this.messageText = message.text;
+            // const messageRef = ref(database, `messages/${message.id}`);
+            // const updatedData = {
+            //   text: newText,
+            // };
+
+            // set(messageRef, updatedData)
+            //   .then(() => {
+            //     const editedMessage = this.messages.find(
+            //       (message) => message.id === messageId
+            //     );
+            //     if (editedMessage) {
+            //       editedMessage.text = newText;
+            //     }
+            //   })
+            //   .catch((error) => {
+            //     console.error("Gagal mengedit pesan:", error);
+            //   });
+          },
+        },
+
+        created() {
+          onChildAdded(messagesRef, (childSnapshot, prevChildKey) => {
+            const data = childSnapshot.val();
+            data.id = childSnapshot.key;
+            this.messages.push(data);
+          });
+
+          onChildRemoved(messagesRef, (oldChildSnapshot) => {
+            const deletedMessageId = oldChildSnapshot.key;
+
+            // Hapus pesan dari daftar pesan lokal
+            const index = this.messages.findIndex(
+              (message) => message.id === deletedMessageId
+            );
+            if (index !== -1) {
+              this.messages.splice(index, 1);
+            }
+          });
+        },
+      });
+    </script>
+  </body>
+</html>
